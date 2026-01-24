@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 type Product struct {
@@ -31,7 +33,166 @@ var categories = []Category{
 	{ID: 3, Name: "Books", Description: "Various genres of books"},
 }
 
+func extractIDFromPath(r *http.Request, prefix string) (int, error) {
+    idStr := strings.TrimPrefix(r.URL.Path, prefix)
+    idStr = strings.Trim(idStr, "/")               // hilangkan trailing slash jika ada
+    if idStr == "" {
+        return 0, fmt.Errorf("missing id in path")
+    }
+
+	if idx := strings.Index(idStr, "/"); idx != -1 {
+        idStr = idStr[:idx]
+    }
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        return 0, fmt.Errorf("invalid id: %w", err)
+    }
+    return id, nil
+}
+
+func getProductById(w http.ResponseWriter, r *http.Request) {
+	id, err := extractIDFromPath(r, "/products/")
+	
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for _, product := range products {
+		if product.ID == id {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(product)
+			return
+		}
+	}
+	http.Error(w, "Product Not Found", http.StatusNotFound)
+}
+
+func updateProductById(w http.ResponseWriter, r *http.Request) {
+	id, err := extractIDFromPath(r, "/products/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var updatedProduct Product
+
+	err = json.NewDecoder(r.Body).Decode(&updatedProduct)
+
+	if err != nil {
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+
+	for i, product := range products {
+		if 	product.ID == id {
+			updatedProduct.ID = product.ID
+			products[i] = updatedProduct
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(updatedProduct)
+			return
+		}
+	}
+	http.Error(w, "Product Not Found", http.StatusNotFound)
+}
+
+func deleteProductById(w http.ResponseWriter, r *http.Request) {
+	id, err := extractIDFromPath(r, "/products/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for i, product := range products {
+		if product.ID == id {
+			products = append(products[:i], products[i+1:]...)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "product deleted successfully",
+			})
+			return
+		}
+	}
+	http.Error(w, "Product Not Found", http.StatusNotFound)
+}
+
+func getCategoryById(w http.ResponseWriter, r *http.Request) {
+	id, err := extractIDFromPath(r, "/categories/")
+	
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for _, category := range categories {
+		if category.ID == id {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(category)
+			return
+		}
+	}
+	http.Error(w, "Category Not Found", http.StatusNotFound)
+}
+
+func updateCategoryById(w http.ResponseWriter, r *http.Request) {
+	id, err := extractIDFromPath(r, "/categories/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var updatedCategory Category
+
+	err = json.NewDecoder(r.Body).Decode(&updatedCategory)
+
+	if err != nil {
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+
+	for i, category := range categories {
+		if 	category.ID == id {
+			updatedCategory.ID = category.ID
+			categories[i] = updatedCategory
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(updatedCategory)
+			return
+		}
+	}
+	http.Error(w, "Category Not Found", http.StatusNotFound)
+}
+
+func deleteCategoryById(w http.ResponseWriter, r *http.Request) {
+	id, err := extractIDFromPath(r, "/categories/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for i, category := range categories {
+		if category.ID == id {
+			categories = append(categories[:i], categories[i+1:]...)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "category deleted successfully",
+			})
+			return
+		}
+	}
+	http.Error(w, "Category Not Found", http.StatusNotFound)
+}
+
 func main() {
+
+	http.HandleFunc("/products/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			getProductById(w, r)
+		} else if r.Method == http.MethodPut {
+			updateProductById(w, r)
+		} else if r.Method == http.MethodDelete {
+			deleteProductById(w, r)
+		}
+	})
+
+
 	http.HandleFunc("/products", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
@@ -55,9 +216,18 @@ func main() {
 		}
 	})
 
-	
-
 	// endpoint categories
+	http.HandleFunc("/categories/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			getCategoryById(w, r)
+		} else if r.Method == http.MethodPut {
+			updateCategoryById(w, r)
+		} else if r.Method == http.MethodDelete {
+			deleteCategoryById(w, r)
+		}
+	})
+
+	
 	http.HandleFunc("/categories", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
@@ -81,10 +251,8 @@ func main() {
 		}
 	})
 
-
-
 	//  endpoint root
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
 			"status":  "OK",
@@ -92,7 +260,7 @@ func main() {
 		})
 	})
 
-	fmt.Println("Server running di localhost:8080")
+	fmt.Println("Server running in localhost:8080")
 
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
