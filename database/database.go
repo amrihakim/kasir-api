@@ -15,11 +15,10 @@ func InitDB(connectionString string) (*sql.DB, error) {
 		log.Fatal(err)
 	}
 
-	// Test the connection
-	// err = db.Ping()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	err = db.Ping()
+	if err != nil {
+		return nil, err
+	}
 
 	// Set connection pool settings if needed
 	db.SetMaxOpenConns(25)
