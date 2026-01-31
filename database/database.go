@@ -2,20 +2,29 @@ package database
 
 import (
 	"database/sql"
-	"time"
+	"fmt"
+	"log"
 
 	_ "github.com/lib/pq"
 )
 
 func InitDB(connectionString string) (*sql.DB, error) {
+	// Initialize your database connection here
 	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(30 * time.Minute)
+	// Test the connection
+	// err = db.Ping()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
+	// Set connection pool settings if needed
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+
+	fmt.Println("Database connection established")
 	return db, nil
 }
