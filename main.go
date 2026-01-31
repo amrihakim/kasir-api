@@ -231,6 +231,8 @@ func main() {
 		DBConn: viper.GetString("DB_CONN"),
 	}
 
+	fmt.Println("DB_CONN:", config.DBConn)
+
 	if config.Port == "" {
 		config.Port = "8080"
 	}
