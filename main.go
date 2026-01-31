@@ -2,9 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"kasir-api/database"
@@ -23,65 +21,96 @@ type Config struct {
 }
 
 func main() {
-
-	var err error
-
-	//  endpoint root
+	// =====================
+	// ENV SETUP
+	// =====================
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	if _, err := os.Stat(".env"); err == nil {
-		viper.SetConfigFile(".env")
-		if err := viper.ReadInConfig(); err != nil {
-			log.Fatal("Failed to read config:", err)
-		}
-	}
 
 	config := Config{
 		Port:   viper.GetString("PORT"),
 		DBConn: viper.GetString("DB_CONN"),
 	}
 
-	fmt.Println("DB_CONN ENV =", os.Getenv("DB_CONN"))
-
 	if config.Port == "" {
 		config.Port = "8080"
 	}
 
-	// DB INIT
+	log.Println("PORT =", config.Port)
+	log.Println("DB_CONN set =", config.DBConn != "")
+
+	// =====================
+	// DB INIT (NON-FATAL)
+	// =====================
+	var (
+		productHandler  *handlers.ProductHandler
+		categoryHandler *handlers.CategoryHandler
+	)
+
 	db, err := database.InitDB(config.DBConn)
 	if err != nil {
-		log.Fatal("Failed to initialize database:", err)
+		log.Println("DB NOT READY:", err)
+	} else {
+		log.Println("DB READY")
+
+		defer db.Close()
+
+		productRepo := repositories.NewProductRepository(db)
+		productService := services.NewProductService(productRepo)
+		productHandler = handlers.NewProductHandler(productService)
+
+		categoryRepo := repositories.NewCategoryRepository(db)
+		categoryService := services.NewCategoryService(categoryRepo)
+		categoryHandler = handlers.NewCategoryHandler(categoryService)
 	}
-	defer db.Close()
 
-	// DEPENDENCY INJECTION
-	productRepo := repositories.NewProductRepository(db)
-	productService := services.NewProductService(productRepo)
-	productHandler := handlers.NewProductHandler(productService)
-
-	categoryRepo := repositories.NewCategoryRepository(db)
-	categoryService := services.NewCategoryService(categoryRepo)
-	categoryHandler := handlers.NewCategoryHandler(categoryService)
-
+	// =====================
 	// ROUTES
+	// =====================
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
-			"status":  "OK",
-			"message": "API Running",
+			"status": "OK",
 		})
 	})
 
-	http.HandleFunc("/products", productHandler.HandleProducts)
-	http.HandleFunc("/products/", productHandler.HandleProductByID)
+	http.HandleFunc("/products", func(w http.ResponseWriter, r *http.Request) {
+		if productHandler == nil {
+			http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		productHandler.HandleProducts(w, r)
+	})
 
-	http.HandleFunc("/categories", categoryHandler.HandleCategories)
-	http.HandleFunc("/categories/", categoryHandler.HandleCategoryByID)
+	http.HandleFunc("/products/", func(w http.ResponseWriter, r *http.Request) {
+		if productHandler == nil {
+			http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		productHandler.HandleProductByID(w, r)
+	})
 
+	http.HandleFunc("/categories", func(w http.ResponseWriter, r *http.Request) {
+		if categoryHandler == nil {
+			http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		categoryHandler.HandleCategories(w, r)
+	})
+
+	http.HandleFunc("/categories/", func(w http.ResponseWriter, r *http.Request) {
+		if categoryHandler == nil {
+			http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		categoryHandler.HandleCategoryByID(w, r)
+	})
+
+	// =====================
 	// SERVER
+	// =====================
 	addr := ":" + config.Port
-	fmt.Println("Server running at", addr)
+	log.Println("Server running at", addr)
 
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
