@@ -42,6 +42,8 @@ func main() {
 		DBConn: viper.GetString("DB_CONN"),
 	}
 
+	fmt.Println("DB_CONN ENV =", os.Getenv("DB_CONN"))
+
 	if config.Port == "" {
 		config.Port = "8080"
 	}
@@ -49,7 +51,7 @@ func main() {
 	// DB INIT
 	db, err := database.InitDB(config.DBConn)
 	if err != nil {
-		log.Fatal("Failed to initialize database:", err)
+		log.Println("Failed to initialize database:", err)
 	}
 	defer db.Close()
 
