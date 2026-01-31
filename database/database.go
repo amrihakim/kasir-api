@@ -2,7 +2,7 @@ package database
 
 import (
 	"database/sql"
-	"fmt"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -13,15 +13,9 @@ func InitDB(connectionString string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Test connection
-	if err := db.Ping(); err != nil {
-		return nil, err
-	}
-
-	db.SetMaxOpenConns(25)
+	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
 
-	fmt.Println("Database connection established")
 	return db, nil
 }
-
