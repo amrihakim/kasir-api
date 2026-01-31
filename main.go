@@ -78,7 +78,7 @@ func main() {
 	http.HandleFunc("/categories/", categoryHandler.HandleCategoryByID)
 
 	// SERVER
-	addr := "0.0.0.0:" + config.Port
+	addr := ":" + config.Port
 	fmt.Println("Server running at", addr)
 
 	log.Fatal(http.ListenAndServe(addr, nil))
