@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.12
 
 require (
-	github.com/lib/pq v1.11.1
+	github.com/lib/pq v1.10.9
 	github.com/spf13/viper v1.21.0
 )
 
