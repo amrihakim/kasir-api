@@ -3,3 +3,4 @@ kasir-api.exe
 *.log
 .env
 .DS_Store
+settings.json
